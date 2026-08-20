@@ -15,58 +15,11 @@
       height: 100%;
       display: block;
     }
-
-    #settingsBar {
-      position: fixed;
-      left: 50%;
-      bottom: 18px;
-      transform: translateX(-50%);
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      padding: 12px 18px;
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 16px;
-      background: rgba(8,12,18,.72);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 10px 35px rgba(0,0,0,.35);
-      color: white;
-      font: 13px system-ui, sans-serif;
-      user-select: none;
-    }
-    #settingsBar label { display:flex; align-items:center; gap:8px; white-space:nowrap; }
-    #settingsBar input[type="range"] { width:110px; accent-color:#9fdcff; cursor:pointer; }
-    #settingsBar input[type="checkbox"] { width:16px; height:16px; accent-color:#9fdcff; cursor:pointer; }
-    #settingsBar button {
-      border:0; border-radius:10px; padding:8px 11px;
-      background:rgba(255,255,255,.1); color:white; cursor:pointer;
-    }
-    #settingsBar button:hover { background:rgba(255,255,255,.18); }
-    .value { min-width:38px; opacity:.72; text-align:right; font-variant-numeric:tabular-nums; }
-    @media (max-width:700px) {
-      #settingsBar { width:calc(100% - 28px); justify-content:center; flex-wrap:wrap; gap:10px 14px; bottom:10px; padding:10px; }
-    }
   </style>
 </head>
 
 <body>
   <canvas id="canvas"></canvas>
-
-  <div id="settingsBar">
-    <label>Speed
-      <input id="speedSlider" type="range" min="0" max="2" step="0.01" value="1">
-      <span class="value" id="speedValue">1.00×</span>
-    </label>
-    <label>Detail
-      <input id="detailSlider" type="range" min="1" max="20" step="1" value="10">
-      <span class="value" id="detailValue">10</span>
-    </label>
-    <label><input id="vignetteToggle" type="checkbox" checked> Vignette</label>
-    <button id="pauseButton">Pause</button>
-    <button id="fullscreenButton">Fullscreen</button>
-  </div>
 
   <script>
     const canvas = document.getElementById("canvas");
@@ -239,7 +192,7 @@
           density += (v1 + v2) * 0.5;
 
           vec2 detailPos =
-              advect(uv * 2.0, u_time * 1.5, int(u_detail_steps));
+              advect(uv * 2.0, u_time * 1.5, 10);
 
           float detail =
               sin(detailPos.x * 10.0) *
@@ -321,7 +274,7 @@
           float vign =
               1.0 - length(uv) * 0.5;
 
-          col *= mix(1.0, vign, u_vignette);
+          col *= vign;
 
           col = pow(col, vec3(0.9));
 
@@ -431,53 +384,6 @@
         "u_time"
       );
 
-    const detailStepsLocation =
-      gl.getUniformLocation(program, "u_detail_steps");
-    const vignetteLocation =
-      gl.getUniformLocation(program, "u_vignette");
-
-    const speedSlider = document.getElementById("speedSlider");
-    const speedValue = document.getElementById("speedValue");
-    const detailSlider = document.getElementById("detailSlider");
-    const detailValue = document.getElementById("detailValue");
-    const vignetteToggle = document.getElementById("vignetteToggle");
-    const pauseButton = document.getElementById("pauseButton");
-    const fullscreenButton = document.getElementById("fullscreenButton");
-
-    let animationSpeed = 1;
-    let detailSteps = 10;
-    let vignetteEnabled = true;
-    let paused = false;
-    let shaderTime = 0;
-    let lastTime = 0;
-
-    speedSlider.addEventListener("input", () => {
-      animationSpeed = Number(speedSlider.value);
-      speedValue.textContent = animationSpeed.toFixed(2) + "×";
-    });
-
-    detailSlider.addEventListener("input", () => {
-      detailSteps = Number(detailSlider.value);
-      detailValue.textContent = detailSteps;
-    });
-
-    vignetteToggle.addEventListener("change", () => {
-      vignetteEnabled = vignetteToggle.checked;
-    });
-
-    pauseButton.addEventListener("click", () => {
-      paused = !paused;
-      pauseButton.textContent = paused ? "Resume" : "Pause";
-    });
-
-    fullscreenButton.addEventListener("click", async () => {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    });
-
     // -----------------------------
     // Resize canvas
     // -----------------------------
@@ -509,19 +415,27 @@
     // Animation
     // -----------------------------
     function render(time) {
-      if (!lastTime) lastTime = time;
-      const delta = (time - lastTime) * 0.001;
-      lastTime = time;
-
-      if (!paused) shaderTime += delta * animationSpeed;
+      time *= 0.001; // milliseconds -> seconds
 
       gl.useProgram(program);
-      gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-      gl.uniform1f(timeLocation, shaderTime);
-      gl.uniform1f(detailStepsLocation, detailSteps);
-      gl.uniform1f(vignetteLocation, vignetteEnabled ? 1.0 : 0.0);
 
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.uniform2f(
+        resolutionLocation,
+        canvas.width,
+        canvas.height
+      );
+
+      gl.uniform1f(
+        timeLocation,
+        time
+      );
+
+      gl.drawArrays(
+        gl.TRIANGLES,
+        0,
+        6
+      );
+
       requestAnimationFrame(render);
     }
 
